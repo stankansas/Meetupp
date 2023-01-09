@@ -1,14 +1,15 @@
+using System.Text.Json.Serialization;
 using Application.Common.Interfaces;
 using AutoMapper;
 using FluentValidation;
 using MediatR;
-using static Application.Errors.RestException;
+using static Application.Common.Exceptions.RestException;
 
 namespace Application.Activities;
 
 public static class Edit {
 
-  public class Handler : IRequestHandler<Command> {
+  internal class Handler : IRequestHandler<Command, ActivityDetailDto> {
     private readonly IAppDbContext dbContext;
     private readonly IMapper mapper;
 
@@ -17,7 +18,7 @@ public static class Edit {
       this.mapper = mapper;
     }
 
-    public async Task<Unit> Handle(Command request, CancellationToken ct) {
+    public async Task<ActivityDetailDto> Handle(Command request, CancellationToken ct) {
       var activity = await dbContext.Activities.FindItemAsync(request.Id, ct);
       ThrowIfNotFound(activity, new { Activity = "Not found" });
 
@@ -25,7 +26,7 @@ public static class Edit {
 
       var success = await dbContext.SaveChangesAsync(ct) > 0;
 
-      if (success) return Unit.Value;
+      if (success) return mapper.Map<ActivityDetailDto>(activity);
 
       throw new Exception("Problem saving Activity");
     }
@@ -34,15 +35,15 @@ public static class Edit {
   public class CommandValidator : AbstractValidator<Command> {
     public CommandValidator() {
       RuleFor(x => x).SetValidator(new ActivityValidator());
+      RuleFor(x => x.Id).NotEmpty();
     }
   }
 
-  public class Command : ActivityBaseDto, IRequest {
-    internal Guid Id { get; set; }
-
-    public Command SetId(Guid id) {
-      Id = id;
-      return this;
-    }
+  /// <summary>
+  /// EditActivity model
+  /// </summary>
+  public class Command : ActivityBaseRequiredDto, IRequest<ActivityDetailDto> {
+    [JsonIgnore]
+    public Guid Id { get; set; }
   }
 }

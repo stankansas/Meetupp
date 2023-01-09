@@ -3,13 +3,13 @@ using Application.Common.Interfaces;
 using Domain;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using static Application.Errors.RestException;
+using static Application.Common.Exceptions.RestException;
 
 namespace Application.Activities;
 
 public static class Attend {
 
-  public class Handler : IRequestHandler<Command> {
+  internal class Handler : IRequestHandler<Command> {
     private readonly IAppDbContext dbContext;
     private readonly ICurrUserService currUserService;
 
@@ -23,10 +23,11 @@ public static class Attend {
       ThrowIfNotFound(activity, new { Activity = "Not found" });
 
       var attendance = await dbContext.UserActivities
-        .SingleOrDefaultAsync(x => x.ActivityId == activity.Id && x.AppUserId == currUserService.UserId, ct);
+        .TagWithCallSite()
+        .SingleOrDefaultAsync(x => x.ActivityId == activity!.Id && x.AppUserId == currUserService.UserId, ct);
       ThrowIfBadRequest(attendance != null, new { Attendance = "Already attending this activity" });
 
-      attendance = UserActivity.Create(currUserService.UserId, activity.Id);
+      attendance = UserActivity.Create(currUserService.UserId, activity!.Id);
 
       dbContext.UserActivities.Add(attendance);
 

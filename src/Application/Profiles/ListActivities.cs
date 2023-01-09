@@ -3,13 +3,13 @@ using AutoMapper;
 using AutoMapper.QueryableExtensions;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using static Application.Errors.RestException;
+using static Application.Common.Exceptions.RestException;
 
 namespace Application.Profiles;
 
 public static class ListActivities {
 
-  public class Handler : IRequestHandler<Query, List<UserActivityDto>> {
+  internal class Handler : IRequestHandler<Query, List<UserActivityDto>> {
     private readonly IAppDbContext dbContext;
     private readonly IMapper mapper;
 
@@ -25,7 +25,7 @@ public static class ListActivities {
       var queryable = dbContext.UserActivities
         .AsNoTracking()
         .Include(x => x.Activity)
-        .Where(x => x.AppUserId == user.Id)
+        .Where(x => x.AppUserId == user!.Id!)
         .OrderBy(a => a.Activity.Date)
         .AsQueryable();
 
@@ -36,7 +36,7 @@ public static class ListActivities {
       };
       await Task.CompletedTask;
 
-      return queryable.ProjectTo<UserActivityDto>(mapper.ConfigurationProvider)
+      return queryable.TagWithCallSite().ProjectTo<UserActivityDto>(mapper.ConfigurationProvider)
         .OrderBy(t => t.Title)
         .ToList();
     }

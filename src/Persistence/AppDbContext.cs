@@ -3,22 +3,29 @@ using Application.Common.Interfaces;
 using Domain;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Configuration;
 
 namespace Persistence;
 
 
 public class AppDbContext : IdentityDbContext<AppUser>, IAppDbContext {
-  private readonly AuditEntitySaveChangesInterceptor auditEntitySaveChangesInterceptor;
+  protected readonly AuditEntitySaveChangesInterceptor auditEntitySaveChangesInterceptor;
+  protected readonly IConfiguration configuration;
 
-  public AppDbContext(DbContextOptions options, AuditEntitySaveChangesInterceptor auditEntitySaveChangesInterceptor) : base(options) {
-    this.auditEntitySaveChangesInterceptor = auditEntitySaveChangesInterceptor;
+  public AppDbContext(
+    DbContextOptions options,
+    AuditEntitySaveChangesInterceptor auditInterceptor,
+    IConfiguration configuration) : base(options) {
+    this.auditEntitySaveChangesInterceptor = auditInterceptor;
+    this.configuration = configuration;
   }
 
-  public DbSet<Activity> Activities { get; set; }
-  public DbSet<UserActivity> UserActivities { get; set; }
-  public DbSet<Photo> Photos { get; set; }
-  public DbSet<Comment> Comments { get; set; }
-  public DbSet<UserFollowing> Followings { get; set; }
+  //TODO: remove these sets. configurations will add them
+  public DbSet<Activity> Activities => Set<Activity>();
+  public DbSet<UserActivity> UserActivities => Set<UserActivity>();
+  public DbSet<Photo> Photos => Set<Photo>();
+  public DbSet<Comment> Comments => Set<Comment>();
+  public DbSet<UserFollowing> Followings => Set<UserFollowing>();
 
   protected override void OnModelCreating(ModelBuilder modelBuilder) {
     modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
@@ -27,16 +34,22 @@ public class AppDbContext : IdentityDbContext<AppUser>, IAppDbContext {
   }
 
   protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder) {
+    optionsBuilder.UseSqlServer(
+      configuration.GetConnectionString("SqlServerConnection"),
+      x => x.MigrationsAssembly(typeof(AppDbContext).Assembly.FullName));
+
     optionsBuilder.AddInterceptors(auditEntitySaveChangesInterceptor);
   }
 
 
-  public async Task<AppUser> GetUserAsync(string userName, CancellationToken ct, bool asTracking = false) =>
+  /// <inheritdoc />
+  public async Task<AppUser?> GetUserAsync(string userName, CancellationToken ct, bool asTracking = false) =>
     await Users
       .AsMayTracking(asTracking)
       .SingleOrDefaultAsync(x => x.UserName == userName, ct);
 
-  public async Task<AppUser> GetUserProfileAsync(string userName, CancellationToken ct, bool asTracking = false) =>
+  /// <inheritdoc />
+  public async Task<AppUser?> GetUserProfileAsync(string userName, CancellationToken ct, bool asTracking = false) =>
     await Users
       .AsMayTracking(asTracking)
       .Include(x => x.Followings)

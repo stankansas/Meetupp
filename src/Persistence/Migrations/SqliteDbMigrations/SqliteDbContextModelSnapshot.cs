@@ -7,10 +7,10 @@ using Persistence;
 
 #nullable disable
 
-namespace Persistence.SqliteDbMigrations.Migrations
+namespace Persistence.Migrations.SqliteDbMigrations
 {
-    [DbContext(typeof(AppDbContext))]
-    partial class DataContextModelSnapshot : ModelSnapshot
+    [DbContext(typeof(SqliteDbContext))]
+    partial class SqliteDbContextModelSnapshot : ModelSnapshot
     {
         protected override void BuildModel(ModelBuilder modelBuilder)
         {
@@ -33,24 +33,24 @@ namespace Persistence.SqliteDbMigrations.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("CreatedBy")
+                    b.Property<string>("CreatedById")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("CreatedOn")
+                    b.Property<DateTime>("CreatedOn")
                         .HasColumnType("TEXT");
 
                     b.Property<DateTime>("Date")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Description")
-                        .HasMaxLength(500)
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("ModifiedBy")
+                    b.Property<string>("ModifiedById")
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTimeOffset>("ModifiedOn")
+                    b.Property<DateTime?>("ModifiedOn")
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Title")
@@ -65,7 +65,11 @@ namespace Persistence.SqliteDbMigrations.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Activities", (string)null);
+                    b.HasIndex("CreatedById");
+
+                    b.HasIndex("ModifiedById");
+
+                    b.ToTable("Activities");
                 });
 
             modelBuilder.Entity("Domain.AppUser", b =>
@@ -84,6 +88,7 @@ namespace Persistence.SqliteDbMigrations.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<string>("DisplayName")
+                        .IsRequired()
                         .HasMaxLength(50)
                         .HasColumnType("TEXT");
 
@@ -148,24 +153,32 @@ namespace Persistence.SqliteDbMigrations.Migrations
                     b.Property<Guid>("ActivityId")
                         .HasColumnType("TEXT");
 
-                    b.Property<string>("AuthorId")
-                        .HasMaxLength(50)
-                        .HasColumnType("TEXT");
-
                     b.Property<string>("Body")
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTime>("CreatedAt")
+                    b.Property<string>("CreatedById")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("CreatedOn")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ModifiedById")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("ModifiedOn")
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
 
                     b.HasIndex("ActivityId");
 
-                    b.HasIndex("AuthorId", "ActivityId");
+                    b.HasIndex("CreatedById");
 
-                    b.ToTable("Comments", (string)null);
+                    b.HasIndex("ModifiedById");
+
+                    b.ToTable("Comment", (string)null);
                 });
 
             modelBuilder.Entity("Domain.Photo", b =>
@@ -181,7 +194,7 @@ namespace Persistence.SqliteDbMigrations.Migrations
 
                     b.Property<string>("PublicId")
                         .IsRequired()
-                        .HasMaxLength(500)
+                        .HasMaxLength(450)
                         .HasColumnType("TEXT");
 
                     b.Property<string>("Url")
@@ -192,13 +205,12 @@ namespace Persistence.SqliteDbMigrations.Migrations
 
                     b.HasIndex("AppUserId");
 
-                    b.ToTable("Photos", (string)null);
+                    b.ToTable("Photos");
                 });
 
             modelBuilder.Entity("Domain.UserActivity", b =>
                 {
                     b.Property<string>("AppUserId")
-                        .HasMaxLength(50)
                         .HasColumnType("TEXT");
 
                     b.Property<Guid>("ActivityId")
@@ -214,7 +226,7 @@ namespace Persistence.SqliteDbMigrations.Migrations
 
                     b.HasIndex("ActivityId");
 
-                    b.ToTable("UserActivities", (string)null);
+                    b.ToTable("UserActivities");
                 });
 
             modelBuilder.Entity("Domain.UserFollowing", b =>
@@ -225,14 +237,14 @@ namespace Persistence.SqliteDbMigrations.Migrations
                     b.Property<string>("TargetId")
                         .HasColumnType("TEXT");
 
-                    b.Property<DateTime>("CreatedAt")
+                    b.Property<DateTime>("CreatedOn")
                         .HasColumnType("TEXT");
 
                     b.HasKey("ObserverId", "TargetId");
 
                     b.HasIndex("TargetId");
 
-                    b.ToTable("Followings", (string)null);
+                    b.ToTable("Followings");
                 });
 
             modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityRole", b =>
@@ -363,21 +375,46 @@ namespace Persistence.SqliteDbMigrations.Migrations
                     b.ToTable("AspNetUserTokens", (string)null);
                 });
 
+            modelBuilder.Entity("Domain.Activity", b =>
+                {
+                    b.HasOne("Domain.AppUser", "CreatedBy")
+                        .WithMany()
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Domain.AppUser", "ModifiedBy")
+                        .WithMany()
+                        .HasForeignKey("ModifiedById");
+
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("ModifiedBy");
+                });
+
             modelBuilder.Entity("Domain.Comment", b =>
                 {
                     b.HasOne("Domain.Activity", "Activity")
                         .WithMany("Comments")
                         .HasForeignKey("ActivityId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("Domain.AppUser", "Author")
+                    b.HasOne("Domain.AppUser", "CreatedBy")
                         .WithMany()
-                        .HasForeignKey("AuthorId");
+                        .HasForeignKey("CreatedById")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("Domain.AppUser", "ModifiedBy")
+                        .WithMany()
+                        .HasForeignKey("ModifiedById");
 
                     b.Navigation("Activity");
 
-                    b.Navigation("Author");
+                    b.Navigation("CreatedBy");
+
+                    b.Navigation("ModifiedBy");
                 });
 
             modelBuilder.Entity("Domain.Photo", b =>
@@ -392,13 +429,13 @@ namespace Persistence.SqliteDbMigrations.Migrations
                     b.HasOne("Domain.Activity", "Activity")
                         .WithMany("UserActivities")
                         .HasForeignKey("ActivityId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.HasOne("Domain.AppUser", "AppUser")
                         .WithMany("UserActivities")
                         .HasForeignKey("AppUserId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Activity");

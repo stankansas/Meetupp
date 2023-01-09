@@ -1,13 +1,13 @@
 using Application.Common.Interfaces;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
-using static Application.Errors.RestException;
+using static Application.Common.Exceptions.RestException;
 
 namespace Application.Followers;
 
 public static class Delete {
 
-  public class Handler : IRequestHandler<Command> {
+  internal class Handler : IRequestHandler<Command> {
     private readonly IAppDbContext dbContext;
     private readonly IIdentityService currUserService;
 
@@ -22,10 +22,10 @@ public static class Delete {
       var target = await dbContext.GetUserAsync(request.Username, ct);
       ThrowIfNotFound(target, new { User = "Not found" });
 
-      var following = await dbContext.Followings.SingleOrDefaultAsync(x => x.ObserverId == observer.Id && x.TargetId == target.Id, ct);
+      var following = await dbContext.Followings.TagWithCallSite().SingleOrDefaultAsync(x => x.ObserverId == observer.Id && x.TargetId == target!.Id, ct);
       ThrowIfBadRequest(following == null, new { User = "You are not following this user" });
 
-      dbContext.Followings.Remove(following);
+      dbContext.Followings.Remove(following!);
       var success = await dbContext.SaveChangesAsync(ct) > 0;
 
       if (success) return Unit.Value;

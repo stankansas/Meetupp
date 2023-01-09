@@ -1,8 +1,9 @@
 using System.ComponentModel.DataAnnotations;
 using Application.Auth;
+using Application.Common;
 using Application.Common.Interfaces;
 using Application.Interfaces;
-using Domain;
+using FluentValidation;
 using MediatR;
 using Microsoft.AspNetCore.Http;
 using Microsoft.EntityFrameworkCore;
@@ -10,12 +11,7 @@ using Microsoft.EntityFrameworkCore;
 namespace Application.Photos;
 
 public static class Add {
-  public class Command : IRequest<Photo> {
-    [Required]
-    public IFormFile File { get; set; }
-  }
-
-  public class Handler : IRequestHandler<Command, Photo> {
+  internal class Handler : IRequestHandler<Command, PhotoDto> {
     private readonly IAppDbContext dbContext;
     private readonly ICurrUserService currUserService;
     private readonly IPhotoAccessor photoAccessor;
@@ -26,21 +22,38 @@ public static class Add {
       this.currUserService = currUserService;
     }
 
-    public async Task<Photo> Handle(Command request, CancellationToken ct) {
-      var photoUploadResult = photoAccessor.AddPhoto(request.File);
+    public async Task<PhotoDto> Handle(Command request, CancellationToken ct) {
+      var photoUploadResult = photoAccessor.AddPhoto(request.ImageFile);
 
       var user = await dbContext.Users
         .Include(x => x.Photos)
         .SingleOrDefaultAsync(x => x.UserName == currUserService.UserId, ct);
 
-      var photo = photoUploadResult.ToEntity(user);
-      user.Photos.Add(photo);
+      var photo = photoUploadResult.ToEntity(user!);
+      user!.Photos!.Add(photo);
 
       var success = await dbContext.SaveChangesAsync(ct) > 0;
 
-      if (success) return photo;
+      if (success) return PhotoDto.From(photo);
 
       throw new Exception("Problem saving photo");
     }
+  }
+
+  public class CommandValidator : AbstractValidator<Command> {
+
+    public CommandValidator() {
+      RuleFor(x => x.ImageFile)
+        .NotEmpty()
+        .Must(x => x.IsImage()).WithMessage("Invalid image file uploaded");
+    }
+  }
+
+  public class Command : IRequest<PhotoDto> {
+    /// <summary>
+    /// Image file
+    /// </summary>
+    [Required]
+    public IFormFile ImageFile { get; set; } = null!;
   }
 }
